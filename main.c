@@ -23,7 +23,9 @@
 #include <string.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <libgen.h>
+#include <time.h>
 #include "i2c.h"
 #include "lt8491.h"
 
@@ -31,6 +33,7 @@ static void print_usage(char *prg)
 {
 	fprintf(stderr, "Usage: %s [options]\n",prg);
 	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "	-l <filename> 		Log to file\n");
 	fprintf(stderr, "	-p <i2c device> 	I2C port\n");
 	fprintf(stderr, "	-a <i2c addr> 		I2C address of power meter (in hex)\n");
 	fprintf(stderr, "\n");
@@ -41,14 +44,20 @@ int main(int argc, char **argv)
 	uint32_t hI2C;
 	char * devname = "/dev/i2c-0";
 	unsigned char i2caddr = 0x10;
+	char * logfilename = NULL;
+	bool logtofile = false;
 
 	printf("LT8491 - Buck/Boost Battery Charger with MPPT\r\n");
 	printf("https://github.com/craigpeacock/LT8491\r\n");
 
 	int opt;
 
-	while ((opt = getopt(argc, argv, "p:a:?")) != -1) {
+	while ((opt = getopt(argc, argv, "l:p:a:?")) != -1) {
 		switch (opt) {
+			case 'l':
+				logfilename = (char *)optarg;
+				logtofile = true;
+				break;
 			case 'p':
 				devname = (char *)optarg;
 				break;
@@ -63,6 +72,17 @@ int main(int argc, char **argv)
 		}
 	}
 
+	FILE *fhandle;
+
+	if (logtofile) {
+			printf("Logging to %s\r\n",logfilename);
+			fhandle = fopen(logfilename,"a+");
+			if (fhandle == NULL) {
+				printf("Unable to open %s for writing\r\n",logfilename);
+				exit(1);
+			}
+	}
+
 	printf("\r\nInitialising device at addr 0x%02X on %s \r\n", i2caddr, devname);
 
 	hI2C = i2c_init(devname);
@@ -71,7 +91,14 @@ int main(int argc, char **argv)
 	struct TELEMETRY tele;
 	struct STATUS stat;
 
+	time_t now;
+	struct tm timeinfo;
+
 	do {
+
+		time(&now);
+		localtime_r(&now, &timeinfo);
+
 		// Get Status
 		lt8491_status(hI2C, i2caddr, &stat);
 		//printf("STAT_CHARGER = 0x%02X, STAT_SYSTEM = 0x%02X, STAT_SUPPLY = 0x%02X\r\n", stat.charger.value, stat.system.value, stat.supply.value);
@@ -125,8 +152,6 @@ int main(int argc, char **argv)
 
 		if (stat.supply.bits.vin_uvlo) printf("VIN_UVLO\r\n");
 
-
-
 		if (stat.charger.bits.chrg_fault) printf("Fault: \r\n");
 
 		// Get Telemetry
@@ -135,7 +160,75 @@ int main(int argc, char **argv)
 		printf("Battery:  %.02fV, %.02fA, %.02fW (%.02fW)\r\n", tele.vbat, tele.iout, tele.pout, tele.vbat*tele.iout);
 		printf("Efficiency: %.01f%% (%.01f%%)\r\n\r\n", tele.eff, (tele.vinr*tele.iin)/(tele.vbat*tele.iout)*100);
 
-		sleep(1);
+		if (logtofile) {
+
+			// Timestamp
+			fprintf(fhandle,"%04d-%02d-%02d %02d:%02d:%02d,",
+					timeinfo.tm_year + 1900,
+					timeinfo.tm_mon + 1,
+					timeinfo.tm_mday,
+					timeinfo.tm_hour,
+					timeinfo.tm_min,
+					timeinfo.tm_sec);
+
+			// Statistics
+			fprintf(fhandle,"%.02f,%.02f,%.02f,", tele.vinr, tele.iin, tele.pin);
+			fprintf(fhandle,"%.02f,%.02f,%.02f,", tele.vbat, tele.iout, tele.pout);
+			fprintf(fhandle,"%.01f,%.01f,", tele.eff, (tele.vinr*tele.iin)/(tele.vbat*tele.iout)*100);
+
+			// MPPT Status
+			switch (stat.supply.bits.solar_state) {
+				case battery_limited:
+					fprintf(fhandle,"Batt Limited,");
+					break;
+
+				case full_panel_scan:
+					fprintf(fhandle,"Full Panel Scan,");
+					break;
+
+				case perturb_and_observe:
+					fprintf(fhandle,"Perturb and Observe,");
+					break;
+
+				case lp_mode_vin_pulsing:
+					fprintf(fhandle,"Low Power Pulsing,");
+					break;
+
+				case lp_mode_vin_too_low:
+					fprintf(fhandle,"Low Power VIN Low,");
+					break;
+
+				default:
+					fprintf(fhandle,"Inactive,");
+					break;
+			}
+
+			// Charging Stage
+			if (stat.charger.bits.charging) {
+				switch (stat.charger.bits.chrg_stage) {
+					case 0b000: fprintf(fhandle, "Stage 0");
+						break;
+
+					case 0b001: fprintf(fhandle, "Stage 1");
+						break;
+
+					case 0b010: fprintf(fhandle, "Stage 2");
+						break;
+
+					case 0b011: fprintf(fhandle, "Stage 3");
+						break;
+
+					case 0b100: fprintf(fhandle, "Complete");
+						break;
+				}
+
+			} else {
+				fprintf(fhandle,"-");
+			}
+			fprintf(fhandle,"\r\n");
+			fflush(fhandle);
+		}
+		sleep(10);
 
 	} while(1);
 }
