@@ -104,7 +104,65 @@ struct TELEMETRY {
 	float vinr;
 };
 
+struct STATUS {
+	union {
+		uint8_t value;
+		struct {
+			uint8_t chrg_logic_on:1;
+			uint8_t gt_c10:1;
+			uint8_t charging:1;
+			uint8_t chrg_stage:3;
+			uint8_t telem_active:1;
+			uint8_t chrg_fault:1;
+		} bits;
+	} charger;
+	union {
+		uint8_t value;
+		struct {
+			uint8_t system_busy:2;
+			uint8_t sweno:1;
+			uint8_t crc_err_boot:1;
+			uint8_t crc_err_factory:3;
+			uint8_t boot_success:1;
+			uint8_t reserved:2;
+		} bits;
+	} system;
+	union {
+		uint8_t value;
+		struct {
+			uint8_t solar_state:3;
+			uint8_t ps_or_solar:1;
+			uint8_t vin_uvlo:1;
+			uint8_t reserved:3;
+		} bits;
+	} supply;
+	uint8_t ts0_remain;
+	uint8_t ts1_remain;
+	uint8_t ts2_remain;
+	uint8_t ts3_remain;
+	union {
+		uint8_t value;
+		struct {
+			uint8_t low_tbat_flt:1;
+			uint8_t high_tbat_flt:1;
+			uint8_t bat_discon_flt:1;
+			uint8_t ts0_expired_flt:1;
+			uint8_t ts1_expired_flt:1;
+			uint8_t ts2_expired_flt:1;
+			uint8_t ts3_expired_flt:1;
+		} bits;
+	} faults;
+};
+
+#define battery_limited			0b101
+#define full_panel_scan			0b100
+#define perturb_and_observe		0b011
+#define lp_mode_vin_pulsing		0b010
+#define lp_mode_vin_too_low		0b001
+#define none_above			0b000
+
 void lt8491_init(uint32_t i2c_master_port, uint8_t i2c_slave_addr);
 int lt8491_telemetry(uint32_t i2c_master_port, uint8_t i2c_slave_addr, struct TELEMETRY *telemetry);
+int lt8491_status(uint32_t i2c_master_port, uint8_t i2c_slave_addr, struct STATUS *status);
 
 #endif

@@ -51,8 +51,6 @@ void lt8491_init(uint32_t i2c_master_port, uint8_t i2c_slave_addr)
 
 	printf("\r\n");
 	sleep(1);
-
-
 }
 
 int lt8491_telemetry(uint32_t i2c_master_port, uint8_t i2c_slave_addr, struct TELEMETRY *telemetry)
@@ -68,5 +66,10 @@ int lt8491_telemetry(uint32_t i2c_master_port, uint8_t i2c_slave_addr, struct TE
 	telemetry->vinr = (float) i2c_read_short(i2c_master_port, i2c_slave_addr, LT8491_TELE_VINR) / 100;
 }
 
-
-
+int lt8491_status(uint32_t i2c_master_port, uint8_t i2c_slave_addr, struct STATUS *status)
+{
+	status->charger.value = i2c_read_byte(i2c_master_port, i2c_slave_addr, LT8491_STAT_CHARGER);
+	status->system.value = i2c_read_byte(i2c_master_port, i2c_slave_addr, LT8491_STAT_SYSTEM);
+	status->supply.value = i2c_read_byte(i2c_master_port, i2c_slave_addr, LT8491_STAT_SUPPLY);
+	status->faults.value = i2c_read_byte(i2c_master_port, i2c_slave_addr, LT8491_STAT_CHRG_FAULTS);
+}

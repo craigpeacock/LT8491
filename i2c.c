@@ -81,7 +81,32 @@ uint32_t i2c_write_buf(uint32_t i2c_master_port, uint8_t address, uint8_t comman
 
 uint8_t i2c_read_byte(uint32_t i2c_master_port, uint8_t address, uint8_t command)
 {
+	uint8_t byte;
 
+	struct i2c_msg msgs[2];
+	struct i2c_rdwr_ioctl_data msgset[1];
+
+	// Message Set 0: Write Command
+	msgs[0].addr = address;
+	msgs[0].flags = 0;
+	msgs[0].len = 1;
+	msgs[0].buf = &command;
+
+	// Message Set 1: Read 2 bytes
+	msgs[1].addr = address;
+	msgs[1].flags = I2C_M_RD | I2C_M_NOSTART;
+	msgs[1].len = 1;
+	msgs[1].buf = (unsigned char *)&byte;
+
+	// Message Set contains 2 messages
+	msgset[0].msgs = msgs;
+	msgset[0].nmsgs = 2;
+
+	if (ioctl(i2c_master_port, I2C_RDWR, &msgset) < 0) {
+		printf("Read I2C failed\r\n");
+		exit(1);
+	}
+	return (byte);
 }
 
 uint16_t i2c_read_short(uint32_t i2c_master_port, uint8_t address, uint8_t command)
@@ -112,7 +137,6 @@ uint16_t i2c_read_short(uint32_t i2c_master_port, uint8_t address, uint8_t comma
 		exit(1);
 	}
 
-	//return(bswap_16(buffer));
 	return(buffer);
 }
 

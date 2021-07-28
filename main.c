@@ -69,13 +69,72 @@ int main(int argc, char **argv)
 	lt8491_init(hI2C, i2caddr);
 
 	struct TELEMETRY tele;
+	struct STATUS stat;
 
 	do {
+		// Get Status
+		lt8491_status(hI2C, i2caddr, &stat);
+		//printf("STAT_CHARGER = 0x%02X, STAT_SYSTEM = 0x%02X, STAT_SUPPLY = 0x%02X\r\n", stat.charger.value, stat.system.value, stat.supply.value);
 
+		switch (stat.supply.bits.solar_state) {
+			case battery_limited:
+				printf("MPPT: Limited by battery\r\n");
+				break;
+
+			case full_panel_scan:
+				printf("MPPT: Performing panel scan for MPP\r\n");
+				break;
+
+			case perturb_and_observe:
+				printf("MPPT: Tracking MPP\r\n");
+				break;
+
+			case lp_mode_vin_pulsing:
+				printf("MPPT: Panel current too low for constant charging\r\n");
+				break;
+
+			case lp_mode_vin_too_low:
+				printf("MPPT: Panel voltage too low to harvest energy\r\n");
+				break;
+
+			default:
+				printf("\r\n");
+				break;
+		}
+
+		if (stat.charger.bits.charging) {
+			printf("Charging: ");
+			switch (stat.charger.bits.chrg_stage) {
+				case 0b000: printf("Stage 0 Trickle");
+					break;
+
+				case 0b001: printf("Stage 1 Constant Current");
+					break;
+
+				case 0b010: printf("Stage 2 Constant Voltage");
+					break;
+
+				case 0b011: printf("Stage 3 Float");
+					break;
+
+				case 0b100: printf("Charging Complete");
+					break;
+			}
+			printf("\r\n");
+		}
+
+		if (stat.supply.bits.vin_uvlo) printf("VIN_UVLO\r\n");
+
+
+
+		if (stat.charger.bits.chrg_fault) printf("Fault: \r\n");
+
+		// Get Telemetry
 		lt8491_telemetry(hI2C, i2caddr, &tele);
 		printf("PV Solar: %.02fV, %.02fA, %.02fW (%.02fW)\r\n", tele.vinr, tele.iin, tele.pin, tele.vinr*tele.iin);
 		printf("Battery:  %.02fV, %.02fA, %.02fW (%.02fW)\r\n", tele.vbat, tele.iout, tele.pout, tele.vbat*tele.iout);
-		printf("Efficiency: %.01f%% (%.01f%%)\r\n\r\n", tele.eff, (tele.vinr*tele.iin)/(tele.vbat*tele.iout)*100); 
+		printf("Efficiency: %.01f%% (%.01f%%)\r\n\r\n", tele.eff, (tele.vinr*tele.iin)/(tele.vbat*tele.iout)*100);
+
 		sleep(1);
 
 	} while(1);
