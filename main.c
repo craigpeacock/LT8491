@@ -157,8 +157,8 @@ int main(int argc, char **argv)
 		// Get Telemetry
 		lt8491_telemetry(hI2C, i2caddr, &tele);
 		printf("PV Solar: %.02fV, %.02fA, %.02fW (%.02fW)\r\n", tele.vinr, tele.iin, tele.pin, tele.vinr*tele.iin);
-		printf("Battery:  %.02fV, %.02fA, %.02fW (%.02fW)\r\n", tele.vbat, tele.iout, tele.pout, tele.vbat*tele.iout);
-		printf("Efficiency: %.01f%% (%.01f%%)\r\n\r\n", tele.eff, (tele.vinr*tele.iin)/(tele.vbat*tele.iout)*100);
+		printf("Battery:  %.02fV, %.02fA, %.02fW (%.02fW), %.01fdegC\r\n", tele.vbat, tele.iout, tele.pout, tele.vbat*tele.iout, tele.tbat);
+		printf("Efficiency: %.01f%% (%.01f%%)\r\n\r\n", tele.eff, (tele.vbat*tele.iout)/(tele.vinr*tele.iin)*100);
 
 		if (logtofile) {
 
@@ -173,8 +173,8 @@ int main(int argc, char **argv)
 
 			// Statistics
 			fprintf(fhandle,"%.02f,%.02f,%.02f,", tele.vinr, tele.iin, tele.pin);
-			fprintf(fhandle,"%.02f,%.02f,%.02f,", tele.vbat, tele.iout, tele.pout);
-			fprintf(fhandle,"%.01f,%.01f,", tele.eff, (tele.vinr*tele.iin)/(tele.vbat*tele.iout)*100);
+			fprintf(fhandle,"%.02f,%.02f,%.02f,%.01f,", tele.vbat, tele.iout, tele.pout, tele.tbat);
+			fprintf(fhandle,"%.01f,%.01f,", tele.eff, (tele.vbat*tele.iout)/(tele.vinr*tele.iin)*100);
 
 			// MPPT Status
 			switch (stat.supply.bits.solar_state) {
